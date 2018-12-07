@@ -1,0 +1,35 @@
+Sem2018 Programming assignment 4: Relation classification
+
+In this task, you will apply a supervised approach to learning relations between entities in a text. We will perform the classification for a predefined set of relations: 'worked_at', 'capital', 'has_spouse' and 'author'. Your task is to design and extract a set of features to be given as input to a classifier. Your classifier needs to output the most likely label given a pair of entities and their context. You will perform this task in groups with up to four members.
+
+Data and tools:
+You will build your system using the scikit-learn library for Python and the provided 'train.json.txt' corpus. You will test it on the provided test set 'test-covered.json.txt'. As a classifier, use logistic regression. The dataset-wide evaluation metric is macro-average 0.5-F-score. The details about the dataset we use, the evaluation metric motivation and the running simple example are provided in 'PA4_explained.html' file.
+
+Steps:
+
+1. Build a baseline bag-of-words model and submit your predictions on the test set. Use only the context between, to the left and to the right of the mentions for all snippets (i.e. 'left', 'right' and 'middle' attributes). Use only default parameters to logistic regression in scikit-learn and the following preprocessing: lowercasing and split by whitespace.
+
+2. Develop your own system that beats the baseline. You can explore larger, more diverse feature space to figure out what leads to improved classification. Things to consider: 
+preprocessing -> Olga, 
+syntactic features -> Olga, 
+w2v embeddings for entities mentions, 
+feature selection algorithms, 
+hypoparameters of the logistic regression (regularization, multinomial distribution vs one-vs-rest). 
+
+See the'ML_tips_2018.html' file for some tips and the Hong paper (in "Materialen") for inspiration.
+
+3. Print CV scores for evaluation metrics on each class and dataset-wide metric for models in 1 and 2.
+
+4. Logistic regression model provides a convenient way to analyse to which extent features are predictive for each class by expecting their weights. Use (and adapt) the provided example in 'PA4_explained.html' to analyse which features were useful for each class for the baseline model and your own model.
+
+5. Perform an error analysis by inspecting False Positive and False Negative.
+
+6. Your code takes as an input 'train.json.txt' , 'test-covered.json.txt' files and a name of a file to write predictions to. It trains the model in 2, outputs CV scores from 3 and writes predictions on the test set to a file.
+
+Timeline:
+    By 3 December at 15h: organise the groups and submit your predictions (labels) on the test set for model in 1
+    By 10 December at 15h: your code for the steps 2, 3, 6 together with the prediction file on the test file by 10.12 15:00.
+    By 17 December at 15h: your report describing the features you use, include the scores in 3 and your analysis in 4 and 5. There will be additional requirements for the report released next week.
+    By 18 December: your presentation (one presentation per group, 10 minutes)
+
+    
