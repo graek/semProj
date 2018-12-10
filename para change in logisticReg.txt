@@ -1,0 +1,16 @@
+#parameters modification in LogisticRegression
+LogisticRegression(
+                                            penalty='l2',
+                                             # penalty='l1',
+                                             solver='newton-cg',
+                                             # solver='newton-cg',
+                                             multi_class='multinomial',
+                                             # class_weight='balanced'
+                                             # class_weight={0:0.16,1:0.24,2:0.24, 3:0.20, 4:0.16}
+                                             # class_weight={0:0.20,1:0.20,2:0.20, 3:0.20, 4:0.20}  #0.7704640632708231
+                                             class_weight={0:0.185,1:0.195,2:0.20, 3:0.215, 4:0.205}  #0.7710460928351617
+                                             # class_weight={0:0.180,1:0.195,2:0.20, 3:0.220, 4:0.205}  #0.7645276975236763
+                                             # class_weight={0:0.175,1:0.195,2:0.20, 3:0.225, 4:0.205}  #0.7709512629119667
+                                             # class_weight={0:0.08,1:0.09,2:0.11, 3:0.51, 4:0.21}
+                                             )
+                                        )
