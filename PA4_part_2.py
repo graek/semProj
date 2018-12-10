@@ -78,7 +78,7 @@ def ExtractFeatures(data, read_from_file=True, verbose=True):
     nlp = spacy.load('en')
 
     if read_from_file:
-        f1 = open('syntax_combinations.txt', 'r')
+        f1 = open('pos_combinations.txt', 'r')
         for line in f1:
             featurized_data.append(line)
     else:
@@ -96,10 +96,10 @@ def ExtractFeatures(data, read_from_file=True, verbose=True):
                 current_pos.append(pos_combination)
 
             #featurized_data.append(' '.join(bow))
-            featurized_data.append(' '.join(current_syntax))
+            featurized_data.append(' '.join(current_pos))
             #f.write(' '.join(current_syntax) + '\n')
             #f1.write(' '.join(current_pos) + '\n')
-            print(counter, ' '.join(current_syntax))
+            #print(counter, ' '.join(current_pos))
             counter += 1
     return featurized_data
 
