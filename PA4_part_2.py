@@ -111,9 +111,9 @@ def ExtractFeatures(data, read_from_file=False):
         features_dict = {
             'Mention_1': None,
             'Mention_2': None,
-            'BOW_between': None,
+            #'BOW_between': None, leave commented, scores are better without it
             'BOW_between_POS': None,
-            'BOW_between_syntax': None
+            #'BOW_between_syntax': None leave commented, scores are better without it
         }
 
         for s in instance.snippet:
@@ -133,9 +133,9 @@ def ExtractFeatures(data, read_from_file=False):
         # build a rich feature space for each example
         features_dict['Mention_1'] = instance.entity_1
         features_dict['Mention_2'] = instance.entity_2
-        features_dict['BOW_between'] = ' '.join(bow)
+        #features_dict['BOW_between'] = ' '.join(bow) leave commented, scores are better without it
         features_dict['BOW_between_POS'] = ' '.join(current_pos)
-        features_dict['BOW_between_syntax'] = ' '.join(current_syntax)
+        #features_dict['BOW_between_syntax'] = ' '.join(current_syntax) leave commented, scores are better without it
         featurized_data.append(features_dict)
 
         print(counter)
