@@ -6,11 +6,19 @@
 # Yue Ding
 ############################################################################################
 
+# HOW TO RUN:
+
+# python PA4_part_2.py -tr train.json.txt -ts test.json.txt -f test_labels.txt
+# -p : lowercase and delete punctuation (optional)
+# -l : lemmatize (optional)
+
 import gzip
 import numpy as np
 import random
 import os
+import re
 import json
+import argparse
 
 from collections import Counter, defaultdict, namedtuple
 from sklearn.feature_extraction import DictVectorizer
@@ -26,12 +34,6 @@ import spacy
 ############################################################################################
 # 1. LOAD DATA
 ############################################################################################
-
-PairExample = namedtuple('PairExample',
-                         'entity_1, entity_2, snippet')
-Snippet = namedtuple('Snippet',
-                     'left, mention_1, middle, mention_2, right, direction')
-
 
 def load_data(file, verbose=True):
     f = open(file, 'r', encoding='utf-8')
@@ -63,20 +65,25 @@ def load_data(file, verbose=True):
         labels.append(instance['relation'])
     return data, labels
 
-
-train_data, train_labels = load_data('train.json.txt')
-
-
 ###########################################################################################
 # 2. EXTRACT FEATURES and BUILD CLASSIFIER
 ###########################################################################################
 
+# Extract BOW
+def ExtractBow(data, verbose=False):
+    featurized_data = []
+    for instance in data:
+        bow = set()
+        for s in instance.snippet:
+            bow.update(s.left.split(), s.middle.split(), s.right.split())
+        featurized_data.append(' '.join(bow))
+    return featurized_data
+
 # Extract features
-def ExtractFeatures(data, read_from_file=True, verbose=True):
+def ExtractFeatures(data, read_from_file=True, punct=False, lem=False):
     counter = 1
     featurized_data = []
     nlp = spacy.load('en')
-
     if read_from_file:
         f1 = open('pos_combinations.txt', 'r')
         for line in f1:
@@ -88,7 +95,18 @@ def ExtractFeatures(data, read_from_file=True, verbose=True):
             current_pos = []
             for s in instance.snippet:
                 #bow.update(s.left.split(), s.middle.split(), s.right.split())
-                doc = nlp(s.middle)
+                # Delete punctuation
+                if punct:
+                    line = delete_punct(s.middle)
+                    doc = nlp(line)
+
+                    # Lemmatize
+                    if lem:
+                        line = lemmatize(doc)
+                        doc = nlp(line)
+                else:
+                    doc = nlp(s.middle)
+
                 syntax_combination = syntax_features(doc)
                 current_syntax.append(syntax_combination)
 
@@ -118,12 +136,10 @@ def pos_tags(doc):
     return ' '.join(pos_combination)
 
 # Preprocessing: delete punctuation
-def delete_punct(doc):
-    output_line = []
-    for token in doc:
-        if not token.is_punct:
-            output_line.append(token)
-    return ' '.join(output_line)
+def delete_punct(line):
+    new_line = re.sub(u'[^\w ]+', '', line, flags=re.UNICODE)   # delete punctuation
+    new_line = new_line.lower() # lowercase
+    return line
 
 # Preprocessing: lemmatize
 def lemmatize(doc):
@@ -132,8 +148,6 @@ def lemmatize(doc):
         if not token.is_punct:
             output_line.append(token.lemma_)
     return ' '.join(output_line)
-
-
 
 ##################################################################################################
 # 3. TRAIN CLASSIFIER AND EVALUATE (CV)
@@ -145,28 +159,23 @@ def print_statistics_header():
     print('{:20s} {:>10s} {:>10s} {:>10s} {:>10s}'.format(
         '-' * 18, '-' * 9, '-' * 9, '-' * 9, '-' * 9))
 
-
 def print_statistics_row(rel, result):
     print('{:20s} {:10.3f} {:10.3f} {:10.3f} {:10d}'.format(rel, *result))
-
 
 def print_statistics_footer(avg_result):
     print('{:20s} {:>10s} {:>10s} {:>10s} {:>10s}'.format(
         '-' * 18, '-' * 9, '-' * 9, '-' * 9, '-' * 9))
     print('{:20s} {:10.3f} {:10.3f} {:10.3f} {:10d}'.format('macro-average', *avg_result))
 
-
 def macro_average_results(results):
     avg_result = [np.average([r[i] for r in results.values()]) for i in range(3)]
     avg_result.append(np.sum([r[3] for r in results.values()]))
     return avg_result
 
-
 def average_results(results):
     avg_result = [np.average([r[i] for r in results]) for i in range(3)]
     avg_result.append(np.sum([r[3] for r in results]))
     return avg_result
-
 
 def evaluateCV(clf, label_encoder, X, y, verbose=True):
     results = {}
@@ -197,11 +206,8 @@ def evaluateCV(clf, label_encoder, X, y, verbose=True):
         print_statistics_footer(avg_result)
     return avg_result[2]  # return f_0.5 score as summary statistic
 
-
 # A check for the average F1 score
-
 f_scorer = make_scorer(fbeta_score, beta=0.5, average='macro')
-
 
 def evaluateCV_check(classifier, X, y, verbose=True):
     kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
@@ -209,39 +215,93 @@ def evaluateCV_check(classifier, X, y, verbose=True):
     print("\nCross-validation scores (StratifiedKFold): ", scores)
     print("Mean cv score (StratifiedKFold): ", scores.mean())
 
-#f = open('syntax_combinations.txt', 'w')
-#f1 = open('pos_combinations.txt', 'w')
+if __name__  == "__main__":
+    parser = argparse.ArgumentParser(description="Relations")
+    parser.add_argument("-tr", "--train", dest="train_path",
+                        help="file path to the train set")
+    parser.add_argument("-ts", dest="test_path",
+                        help="file path to the test set")
+    parser.add_argument("-f", dest="result",
+                        help="file path to the set T")
+    parser.add_argument("-p", "--preprocess",
+                        action="store_true", dest="preprocessing",
+                        default=False,
+                        help="perform extra preprocessing: delete punctuation")
+    parser.add_argument("-l", "--lemmatize",
+                        action="store_true", dest="lemmatize",
+                        default=False,
+                        help="perform extra preprocessing: lemmatize")
+    args = parser.parse_args()
 
-# Transform dataset to features
-train_data_featurized = ExtractFeatures(train_data, read_from_file=True)
+    # Load data and labels
+    PairExample = namedtuple('PairExample',
+                             'entity_1, entity_2, snippet')
+    Snippet = namedtuple('Snippet',
+                         'left, mention_1, middle, mention_2, right, direction')
+    train_data, train_labels = load_data(args.train_path, verbose=False)
+    print('Data loaded')
 
-# Transform labels to numeric values
-le = LabelEncoder()
-train_labels_featurized = le.fit_transform(train_labels)
+    # MODEL 1
 
-# Fit model one vs rest logistic regression
-clf = make_pipeline(CountVectorizer(), LogisticRegression())
+    # Transform dataset to features
+    print('Training model 1...')
+    train_data_featurized_bow = ExtractBow(train_data)
+    print('Model 1 trained')
+    le = LabelEncoder()
+    train_labels_featurized_bow = le.fit_transform(train_labels)
+    bow_clf = make_pipeline(CountVectorizer(), LogisticRegression())
+    bow_clf.fit(train_data_featurized_bow, train_labels_featurized_bow)
+    print('Making predictions for the model 1...')
+    test_data, test_labels = load_data(args.test_path, verbose=False)
+    test_data_featurized_bow = ExtractBow(test_data)
+    test_label_predicted_bow = bow_clf.predict(test_data_featurized_bow)
+    test_label_predicted_decoded_bow = le.inverse_transform(test_label_predicted_bow)
+    print(test_label_predicted_decoded_bow[:2])
+    print('Predictions made')
+    print('CV scores for the model 1:')
+    # Evaluate the model
+    print(evaluateCV(bow_clf, le, train_data_featurized_bow, train_labels_featurized_bow))
+    evaluateCV_check(bow_clf, train_data_featurized_bow, train_labels_featurized_bow)
 
-#########################################################################################
-# 4. TEST PREDICTIONS and ANALYSIS
-#########################################################################################
+    # MODEL 2
 
-# Fit final model on the full train data
-clf.fit(train_data_featurized, train_labels_featurized)
+    # f = open('syntax_combinations.txt', 'w')
+    # f1 = open('pos_combinations.txt', 'w')
+    print('Training model 2...')
+    train_data_featurized = ExtractFeatures(train_data, read_from_file=True)
+    print('Model 2 trained')
 
-# Predict on test set
-test_data, test_labels = load_data('test.json.txt', verbose=False)
-test_data_featurized = ExtractFeatures(test_data, read_from_file=False, verbose=False)
-test_label_predicted = clf.predict(test_data_featurized)
+    # Transform labels to numeric values
+    le = LabelEncoder()
+    train_labels_featurized = le.fit_transform(train_labels)
 
-# Deprecation warning explained: https://stackoverflow.com/questions/49545947/sklearn-deprecationwarning-truth-value-of-an-array
-test_label_predicted_decoded = le.inverse_transform(test_label_predicted)
-print(test_label_predicted_decoded[:2])
+    # Fit model one vs rest logistic regression
+    clf = make_pipeline(CountVectorizer(), LogisticRegression())
 
-# Evaluate the model
-print(evaluateCV(clf, le, test_data_featurized, test_label_predicted))
-evaluateCV_check(clf, test_data_featurized, test_label_predicted)
+    #########################################################################################
+    # 4. TEST PREDICTIONS and ANALYSIS
+    #########################################################################################
 
-f = open("test_labels.txt", 'w', encoding="utf-8")
-for label in test_label_predicted_decoded:
-    f.write(label + '\n')
+    # Fit final model on the full train data
+    clf.fit(train_data_featurized, train_labels_featurized)
+
+    print('Making predictions for the model 2...')
+    # Predict on test set
+    test_data, test_labels = load_data(args.test_path, verbose=False)
+    test_data_featurized = ExtractFeatures(test_data, read_from_file=False)
+    test_label_predicted = clf.predict(test_data_featurized)
+
+    # Deprecation warning explained: https://stackoverflow.com/questions/49545947/sklearn-deprecationwarning-truth-value-of-an-array
+    test_label_predicted_decoded = le.inverse_transform(test_label_predicted)
+    print(test_label_predicted_decoded[:2])
+
+    f = open(args.result, 'w', encoding="utf-8")
+    for label in test_label_predicted_decoded:
+        f.write(label + '\n')
+
+    print('Predictions written to the file ' + args.result)
+
+    print('CV scores for the model 2:')
+    # Evaluate the model
+    print(evaluateCV(clf, le, train_data_featurized, train_labels_featurized))
+    evaluateCV_check(clf, train_data_featurized, train_labels_featurized)
