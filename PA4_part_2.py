@@ -138,7 +138,7 @@ def ExtractFeatures(data, read_from_file=False):
         features_dict['BOW_between_syntax'] = ' '.join(current_syntax)
         featurized_data.append(features_dict)
 
-        #print(counter)
+        print(counter)
         counter += 1
     return featurized_data
 
