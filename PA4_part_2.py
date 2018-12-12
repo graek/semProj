@@ -4,14 +4,6 @@
 # Olga Sozinova
 # Xiao'ao Song
 # Yue Ding
-
-# We are aware that the proposed solution is not correctly utilizing the extended feature space,
-# but we did not manage to implement the CountVecotrizer the right way to combine the Word-count for the BOW
-# together with other features (like POS tags).
-#
-# At the point of the submission, the DictVectorizer produces an error, which we will try to remove until the lecture tomorrow.
-
-
 ############################################################################################
 
 # HOW TO RUN:
@@ -34,6 +26,7 @@ from sklearn.metrics import precision_recall_fscore_support, fbeta_score, make_s
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import cross_val_score, StratifiedKFold, KFold
 from sklearn.preprocessing import FunctionTransformer, LabelEncoder
+from sklearn.feature_selection import SelectFromModel
 import numpy as np
 import spacy
 
@@ -89,6 +82,15 @@ def ExtractBow(data, verbose=False):
 
 
 # Extract features
+#
+# List of features:
+# - Names of entity 1 and 2
+# - BOW
+# - POS tags
+# - Syntax labels
+# - Word2Vec representations
+# - Direction
+
 def ExtractFeatures(data, read_from_file=False):
     counter = 0
     featurized_data = []
@@ -96,51 +98,80 @@ def ExtractFeatures(data, read_from_file=False):
 
     pos_text = []
     syntax_text = []
+    word2vec_text = []
 
     if read_from_file:
         f1 = open('pos_combinations.txt', 'r')
         f2 = open('syntax_combinations.txt', 'r')
+        f3 = open('word2vec_combinations.txt', 'r')
         pos_text = f1.readlines()
         syntax_text = f2.readlines()
+        word2vec_text = f3.readlines()
 
     for instance in data:
         bow = set()
         current_syntax = []
         current_pos = []
-
-        features_dict = {
-            'Mention_1': None,
-            'Mention_2': None,
-            #'BOW_between': None, leave commented, scores are better without it
-            'BOW_between_POS': None,
-            #'BOW_between_syntax': None leave commented, scores are better without it
-        }
+        current_vectors = []
+        direction = ''
 
         for s in instance.snippet:
-            bow.update(s.left.split(), s.middle.split(), s.right.split())
+
+            left = delete_punct(s.left)
+            middle = delete_punct(s.middle)
+            right = delete_punct(s.right)
+
+            bow.update(left.split(), middle.split(), right.split())
+
+            if hasattr(s, direction):
+                direction = s.direction
 
             if len(pos_text) == 0 and len(syntax_text) == 0:
-                doc = nlp(s.middle)
+                doc = nlp(middle)
                 syntax_combination = syntax_features(doc)
                 current_syntax.append(syntax_combination)
                 pos_combination = pos_tags(doc)
                 current_pos.append(pos_combination)
+                word2vec_combination = word2vec(right, middle, left, s, nlp)
+                current_vectors.append(word2vec_combination)
 
         if len(pos_text) > 0 and len(syntax_text) > 0:
             current_syntax = syntax_text[counter]
             current_pos = pos_text[counter]
+            current_vectors = word2vec_text[counter]
 
-        # build a rich feature space for each example
-        features_dict['Mention_1'] = instance.entity_1
-        features_dict['Mention_2'] = instance.entity_2
-        #features_dict['BOW_between'] = ' '.join(bow) leave commented, scores are better without it
-        features_dict['BOW_between_POS'] = ' '.join(current_pos)
-        #features_dict['BOW_between_syntax'] = ' '.join(current_syntax) leave commented, scores are better without it
-        featurized_data.append(features_dict)
+        result = instance.entity_1 + ' ' + instance.entity_2
+        result += ' '.join(bow) + ' '.join(current_pos)
+                  #+ ' '.join(current_syntax) without syntax feature the scores are higher
+        result += ' '.join(current_vectors)
+        result += ' ' + direction
+        featurized_data.append(result)
 
         print(counter)
         counter += 1
     return featurized_data
+
+# Word2Vec representations of mentions
+def word2vec(right, middle, left, s, nlp):
+    current_data = []
+
+    text = right + ' ' + middle + ' ' + left
+    mentions = s.mention_1.split()
+    mentions.extend(s.mention_2.split())
+
+    for mention in mentions:
+        if mention in text:
+            doc = nlp(text)
+            index = -1
+            for token in doc:
+                if token.text == mention and not token.is_punct and not token.is_stop:
+                    index = token.i
+            if index > -1:
+                current_data.extend(doc[index].vector)
+    if len(current_data) > 0:
+        return ''.join(str(current_data))
+    else:
+        return ''
 
 
 # Syntactic analysis (NP, VP, etc.)
@@ -162,7 +193,7 @@ def pos_tags(doc):
 # Preprocessing: delete punctuation
 def delete_punct(line):
     new_line = re.sub(u'[^\w ]+', '', line, flags=re.UNICODE)  # delete punctuation
-    new_line = new_line.lower()  # lowercase
+    #new_line = new_line.lower()  # lowercase
     return new_line
 
 
@@ -270,24 +301,24 @@ if __name__ == "__main__":
     # MODEL 1
 
     # Transform dataset to features
-    # print('Training model 1...')
-    # train_data_featurized_bow = ExtractBow(train_data)
-    # print('Model 1 trained')
-    # le = LabelEncoder()
-    # train_labels_featurized_bow = le.fit_transform(train_labels)
-    # bow_clf = make_pipeline(CountVectorizer(), LogisticRegression())
-    # bow_clf.fit(train_data_featurized_bow, train_labels_featurized_bow)
-    # print('Making predictions for the model 1...')
-    # test_data, test_labels = load_data(args.test_path, verbose=False)
-    # test_data_featurized_bow = ExtractBow(test_data)
-    # test_label_predicted_bow = bow_clf.predict(test_data_featurized_bow)
-    # test_label_predicted_decoded_bow = le.inverse_transform(test_label_predicted_bow)
-    # print(test_label_predicted_decoded_bow[:2])
-    # print('Predictions made')
-    # print('CV scores for the model 1:')
-    # # Evaluate the model
-    # print(evaluateCV(bow_clf, le, train_data_featurized_bow, train_labels_featurized_bow))
-    # evaluateCV_check(bow_clf, train_data_featurized_bow, train_labels_featurized_bow)
+    print('Training model 1...')
+    train_data_featurized_bow = ExtractBow(train_data)
+    print('Model 1 trained')
+    le = LabelEncoder()
+    train_labels_featurized_bow = le.fit_transform(train_labels)
+    bow_clf = make_pipeline(CountVectorizer(), LogisticRegression())
+    bow_clf.fit(train_data_featurized_bow, train_labels_featurized_bow)
+    print('Making predictions for the model 1...')
+    test_data, test_labels = load_data(args.test_path, verbose=False)
+    test_data_featurized_bow = ExtractBow(test_data)
+    test_label_predicted_bow = bow_clf.predict(test_data_featurized_bow)
+    test_label_predicted_decoded_bow = le.inverse_transform(test_label_predicted_bow)
+    print(test_label_predicted_decoded_bow[:2])
+    print('Predictions made')
+    print('CV scores for the model 1:')
+    # Evaluate the model
+    print(evaluateCV(bow_clf, le, train_data_featurized_bow, train_labels_featurized_bow))
+    evaluateCV_check(bow_clf, train_data_featurized_bow, train_labels_featurized_bow)
 
     # MODEL 2
 
@@ -302,7 +333,17 @@ if __name__ == "__main__":
     train_labels_featurized = le.fit_transform(train_labels)
 
     # Fit model one vs rest logistic regression
-    clf = make_pipeline(DictVectorizer(), LogisticRegression())
+    clf = make_pipeline(CountVectorizer(
+        stop_words="english",
+        decode_error="replace",
+        lowercase=True
+    ), LogisticRegression(
+        penalty="l2",
+        solver="newton-cg",
+        multi_class="multinomial",
+        class_weight={0: 0.185, 1: 0.195, 2: 0.20, 3: 0.215, 4: 0.205}
+    ))
+    
 
     #########################################################################################
     # 4. TEST PREDICTIONS and ANALYSIS
