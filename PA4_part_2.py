@@ -10,11 +10,9 @@
 
 # python PA4_part_2.py -tr train.json.txt -ts test.json.txt -f test_labels.txt
 
-
 import re
 import json
 import argparse
-
 
 from collections import namedtuple
 from sklearn.feature_extraction.text import CountVectorizer
@@ -23,8 +21,6 @@ from sklearn.metrics import precision_recall_fscore_support, fbeta_score, make_s
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import cross_val_score, StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
-from nltk import word_tokenize
-from nltk.util import ngrams
 import numpy as np
 import spacy
 
@@ -87,30 +83,19 @@ def ExtractBow(data, verbose=False):
 # - Bigrams
 # - POS tags
 # - Syntax labels
+# - Word2Vec representations
 # - Direction
 
-def ExtractFeatures(data, read_from_file=False):
+def ExtractFeatures(data):
     counter = 0
     featurized_data = []
     nlp = spacy.load('en')
-
-    pos_text = []
-    syntax_text = []
-    #word2vec_text = []
-
-    # if read_from_file:
-    #      f1 = open('pos_combinations.txt', 'r')
-    #      f2 = open('syntax_combinations.txt', 'r')
-    #      pos_text = f1.readlines()
-    #      syntax_text = f2.readlines()
-        #word2vec_text = f3.readlines()
 
     for instance in data:
         bow = set()
         current_syntax = []
         current_pos = []
         current_bigrams = set()
-        #current_vectors = []
         direction = ''
 
         for s in instance.snippet:
@@ -126,58 +111,46 @@ def ExtractFeatures(data, read_from_file=False):
             if hasattr(s, direction):
                 direction = s.direction
 
-            if len(pos_text) == 0 and len(syntax_text) == 0:
-                doc = nlp(middle)
-                syntax_combination = syntax_features(doc)
-                current_syntax.append(syntax_combination)
-                pos_combination = pos_tags(doc)
-                current_pos.append(pos_combination)
+            doc = nlp(middle)
+            syntax_combination = syntax_features(doc)
+            current_syntax.append(syntax_combination)
+            pos_combination = pos_tags(doc)
+            current_pos.append(pos_combination)
 
-                #word2vec_combination = word2vec(right, middle, left, s, nlp)
-                #current_vectors.append(word2vec_combination)
-
-        # if len(pos_text) > 0 and len(syntax_text) > 0:
-        #     current_syntax = syntax_text[counter]
-        #     current_pos = pos_text[counter]
-            #current_vectors = word2vec_text[counter]
 
         result = instance.entity_1 + ' ' + instance.entity_2 + ' '
-        result += ' '.join(current_bigrams) + ' '.join(bow) + ' '
-        result += ' '.join(current_pos) + ' '.join(current_syntax) + ' '
-        #without syntax feature the scores are higher
-        #result += ' '.join(current_vectors)
+        result += ' '.join(current_bigrams) + ' '
+        result += ' '.join(bow) + ' '
+        result += ' '.join(current_pos) + ' '
+        result += ' '.join(current_syntax) + ' '
         result += ' ' + direction
         featurized_data.append(result)
-
-        # if read_from_file:
-        #     f1.write(' '.join(current_pos) + '\n')
-        #     f2.write(' '.join(current_syntax) + '\n')
 
         print(counter)
         counter += 1
     return featurized_data
 
 # Word2Vec representations of mentions
-def word2vec(right, middle, left, s, nlp):
-    current_data = []
-
-    text = right + ' ' + middle + ' ' + left
-    mentions = s.mention_1.split()
-    mentions.extend(s.mention_2.split())
-
-    for mention in mentions:
-        if mention in text:
-            doc = nlp(text)
-            index = -1
-            for token in doc:
-                if token.text == mention and not token.is_punct and not token.is_stop:
-                    index = token.i
-            if index > -1:
-                current_data.extend(doc[index].vector)
-    if len(current_data) > 0:
-        return ''.join(str(current_data))
-    else:
-        return ''
+# def word2vec(right, middle, left, s, nlp):
+#     current_data = []
+#
+#     text = right + ' ' + middle + ' ' + left
+#     mentions = s.mention_1.split()
+#     mentions.extend(s.mention_2.split())
+#
+#     for mention in mentions:
+#         if mention in text:
+#             doc = nlp(text)
+#             index = -1
+#             for token in doc:
+#                 if token.text == mention and not token.is_punct and not token.is_stop:
+#                     index = token.i
+#             if index > -1:
+#                 current_data.extend(doc[index].vector)
+#     if len(current_data) > 0:
+#         return ''.join(str(current_data))
+#     else:
+#         return ''
 
 # Bigrams
 def bigrams(right, middle, left):
@@ -338,11 +311,9 @@ if __name__ == "__main__":
     # evaluateCV_check(bow_clf, train_data_featurized_bow, train_labels_featurized_bow)
 
     # MODEL 2
-    # f1 = open('pos_combinations.txt', 'w')
-    # f2 = open('syntax_combinations.txt', 'w')
 
     print('Training model 2...')
-    train_data_featurized = ExtractFeatures(train_data, read_from_file=False)
+    train_data_featurized = ExtractFeatures(train_data)
     print('Model 2 trained')
 
     # Transform labels to numeric values
