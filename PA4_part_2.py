@@ -10,23 +10,21 @@
 
 # python PA4_part_2.py -tr train.json.txt -ts test.json.txt -f test_labels.txt
 
-import gzip
-import numpy as np
-import random
-import os
+
 import re
 import json
 import argparse
 
-from collections import Counter, defaultdict, namedtuple
-from sklearn.feature_extraction import DictVectorizer
+
+from collections import namedtuple
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import precision_recall_fscore_support, fbeta_score, make_scorer
 from sklearn.pipeline import make_pipeline
-from sklearn.model_selection import cross_val_score, StratifiedKFold, KFold
-from sklearn.preprocessing import FunctionTransformer, LabelEncoder
-from sklearn.feature_selection import SelectFromModel
+from sklearn.model_selection import cross_val_score, StratifiedKFold
+from sklearn.preprocessing import LabelEncoder
+from nltk import word_tokenize
+from nltk.util import ngrams
 import numpy as np
 import spacy
 
@@ -86,9 +84,9 @@ def ExtractBow(data, verbose=False):
 # List of features:
 # - Names of entity 1 and 2
 # - BOW
+# - Bigrams
 # - POS tags
 # - Syntax labels
-# - Word2Vec representations
 # - Direction
 
 def ExtractFeatures(data, read_from_file=False):
@@ -98,21 +96,21 @@ def ExtractFeatures(data, read_from_file=False):
 
     pos_text = []
     syntax_text = []
-    word2vec_text = []
+    #word2vec_text = []
 
-    if read_from_file:
-        f1 = open('pos_combinations.txt', 'r')
-        f2 = open('syntax_combinations.txt', 'r')
-        f3 = open('word2vec_combinations.txt', 'r')
-        pos_text = f1.readlines()
-        syntax_text = f2.readlines()
-        word2vec_text = f3.readlines()
+    # if read_from_file:
+    #      f1 = open('pos_combinations.txt', 'r')
+    #      f2 = open('syntax_combinations.txt', 'r')
+    #      pos_text = f1.readlines()
+    #      syntax_text = f2.readlines()
+        #word2vec_text = f3.readlines()
 
     for instance in data:
         bow = set()
         current_syntax = []
         current_pos = []
-        current_vectors = []
+        current_bigrams = set()
+        #current_vectors = []
         direction = ''
 
         for s in instance.snippet:
@@ -123,6 +121,8 @@ def ExtractFeatures(data, read_from_file=False):
 
             bow.update(left.split(), middle.split(), right.split())
 
+            current_bigrams.update(bigrams(right, middle, left))
+
             if hasattr(s, direction):
                 direction = s.direction
 
@@ -132,20 +132,26 @@ def ExtractFeatures(data, read_from_file=False):
                 current_syntax.append(syntax_combination)
                 pos_combination = pos_tags(doc)
                 current_pos.append(pos_combination)
-                word2vec_combination = word2vec(right, middle, left, s, nlp)
-                current_vectors.append(word2vec_combination)
 
-        if len(pos_text) > 0 and len(syntax_text) > 0:
-            current_syntax = syntax_text[counter]
-            current_pos = pos_text[counter]
-            current_vectors = word2vec_text[counter]
+                #word2vec_combination = word2vec(right, middle, left, s, nlp)
+                #current_vectors.append(word2vec_combination)
 
-        result = instance.entity_1 + ' ' + instance.entity_2
-        result += ' '.join(bow) + ' '.join(current_pos)
-                  #+ ' '.join(current_syntax) without syntax feature the scores are higher
-        result += ' '.join(current_vectors)
+        # if len(pos_text) > 0 and len(syntax_text) > 0:
+        #     current_syntax = syntax_text[counter]
+        #     current_pos = pos_text[counter]
+            #current_vectors = word2vec_text[counter]
+
+        result = instance.entity_1 + ' ' + instance.entity_2 + ' '
+        result += ' '.join(current_bigrams) + ' '.join(bow) + ' '
+        result += ' '.join(current_pos) + ' '.join(current_syntax) + ' '
+        #without syntax feature the scores are higher
+        #result += ' '.join(current_vectors)
         result += ' ' + direction
         featurized_data.append(result)
+
+        # if read_from_file:
+        #     f1.write(' '.join(current_pos) + '\n')
+        #     f2.write(' '.join(current_syntax) + '\n')
 
         print(counter)
         counter += 1
@@ -173,6 +179,17 @@ def word2vec(right, middle, left, s, nlp):
     else:
         return ''
 
+# Bigrams
+def bigrams(right, middle, left):
+    text = right + ' ' + middle + ' ' + left
+    tokens = text.split()
+    counter = 0
+    bigrams = []
+    while counter + 1 < len(tokens):
+        bigrams.append(tokens[counter] + ' ' + tokens[counter + 1])
+        counter += 1
+    return ' '.join(bigrams)
+
 
 # Syntactic analysis (NP, VP, etc.)
 def syntax_features(doc):
@@ -193,7 +210,7 @@ def pos_tags(doc):
 # Preprocessing: delete punctuation
 def delete_punct(line):
     new_line = re.sub(u'[^\w ]+', '', line, flags=re.UNICODE)  # delete punctuation
-    #new_line = new_line.lower()  # lowercase
+    new_line = new_line.lower()  # lowercase
     return new_line
 
 
@@ -301,31 +318,31 @@ if __name__ == "__main__":
     # MODEL 1
 
     # Transform dataset to features
-    print('Training model 1...')
-    train_data_featurized_bow = ExtractBow(train_data)
-    print('Model 1 trained')
-    le = LabelEncoder()
-    train_labels_featurized_bow = le.fit_transform(train_labels)
-    bow_clf = make_pipeline(CountVectorizer(), LogisticRegression())
-    bow_clf.fit(train_data_featurized_bow, train_labels_featurized_bow)
-    print('Making predictions for the model 1...')
-    test_data, test_labels = load_data(args.test_path, verbose=False)
-    test_data_featurized_bow = ExtractBow(test_data)
-    test_label_predicted_bow = bow_clf.predict(test_data_featurized_bow)
-    test_label_predicted_decoded_bow = le.inverse_transform(test_label_predicted_bow)
-    print(test_label_predicted_decoded_bow[:2])
-    print('Predictions made')
-    print('CV scores for the model 1:')
-    # Evaluate the model
-    print(evaluateCV(bow_clf, le, train_data_featurized_bow, train_labels_featurized_bow))
-    evaluateCV_check(bow_clf, train_data_featurized_bow, train_labels_featurized_bow)
+    # print('Training model 1...')
+    # train_data_featurized_bow = ExtractBow(train_data)
+    # print('Model 1 trained')
+    # le = LabelEncoder()
+    # train_labels_featurized_bow = le.fit_transform(train_labels)
+    # bow_clf = make_pipeline(CountVectorizer(), LogisticRegression())
+    # bow_clf.fit(train_data_featurized_bow, train_labels_featurized_bow)
+    # print('Making predictions for the model 1...')
+    # test_data, test_labels = load_data(args.test_path, verbose=False)
+    # test_data_featurized_bow = ExtractBow(test_data)
+    # test_label_predicted_bow = bow_clf.predict(test_data_featurized_bow)
+    # test_label_predicted_decoded_bow = le.inverse_transform(test_label_predicted_bow)
+    # print(test_label_predicted_decoded_bow[:2])
+    # print('Predictions made')
+    # print('CV scores for the model 1:')
+    # # Evaluate the model
+    # print(evaluateCV(bow_clf, le, train_data_featurized_bow, train_labels_featurized_bow))
+    # evaluateCV_check(bow_clf, train_data_featurized_bow, train_labels_featurized_bow)
 
     # MODEL 2
-
-    # f = open('syntax_combinations.txt', 'w')
     # f1 = open('pos_combinations.txt', 'w')
+    # f2 = open('syntax_combinations.txt', 'w')
+
     print('Training model 2...')
-    train_data_featurized = ExtractFeatures(train_data, read_from_file=True)
+    train_data_featurized = ExtractFeatures(train_data, read_from_file=False)
     print('Model 2 trained')
 
     # Transform labels to numeric values
