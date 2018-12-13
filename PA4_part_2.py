@@ -83,7 +83,6 @@ def ExtractBow(data, verbose=False):
 # - Bigrams
 # - POS tags
 # - Syntax labels
-# - Word2Vec representations
 # - Direction
 
 def ExtractFeatures(data):
