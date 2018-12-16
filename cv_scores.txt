@@ -1,3 +1,5 @@
+TRAINING SET
+
 CV scores for the model 1, training set:
 
 relation              precision     recall    f-score    support
@@ -22,3 +24,29 @@ worked_at                 0.770      0.630      0.737       1178
 ------------------    ---------  ---------  ---------  ---------
 macro-average             0.826      0.760      0.807       9660
 0.8068485127856292
+
+TEST SET (GOLD STANDARD)
+
+CV scores for the model 1, test set (from Tatiana):
+
+relation              precision   recall    f-score   support
+------------------ ------------- --------- --------- ---------
+NO_REL                  0.000      0.000      0.000      0
+author                  0.933      0.858      0.917      663
+capital                 0.974      0.598      0.866      127
+has_spouse              0.927      0.939      0.929      755
+worked_at               0.844      0.569      0.770      295
+------------------ ------------- --------- --------- ---------
+macro-average           0.736      0.593      0.696      1840
+
+CV scores for the model 2, test set (from Tatiana):
+
+relation              precision   recall    f-score   support
+------------------ ------------- --------- --------- ---------
+NO_REL                  0.000      0.000      0.000       0
+author                  0.941      0.887      0.929       663
+capital                 0.986      0.575      0.863       127
+has_spouse              0.960      0.960      0.960       755
+worked_at               0.901      0.617      0.825       295
+------------------ ------------- --------- --------- ---------
+macro-average           0.758      0.608      0.716       1840
