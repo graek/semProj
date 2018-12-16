@@ -1,0 +1,33 @@
+               pred:author  pred:capital  pred:has_spouse  pred:worked_at
+true:author              597             0               13              12
+true:capital               5            74                2               4
+true:has_spouse            2             0              726               2
+true:worked_at            27             0               12             181
+
+
+Contigency table for label author
+True Positive: 597
+False Positive: 34
+False Negative: 66
+True Negative: 1143
+
+
+Contigency table for label capital
+True Positive: 74
+False Positive: 0
+False Negative: 53
+True Negative: 1713
+
+
+Contigency table for label has_spouse
+True Positive: 726
+False Positive: 27
+False Negative: 29
+True Negative: 1058
+
+
+Contigency table for label worked_at
+True Positive: 181
+False Positive: 18
+False Negative: 114
+True Negative: 1527
